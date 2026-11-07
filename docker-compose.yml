@@ -1,0 +1,26 @@
+services:
+  mongo:
+    image: mongo:8.0.4-noble
+    ports:
+      - '127.0.0.1:27017:27017'
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: root
+      MONGO_INITDB_DATABASE: clean_shop
+    volumes:
+      - mongodb_data:/data/db
+
+  postgres:
+    image: postgres:17.6-alpine3.22
+    ports:
+      - '127.0.0.1:5432:5432'
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: clean_shop
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  mongodb_data:
+  postgres_data:
