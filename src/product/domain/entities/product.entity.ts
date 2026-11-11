@@ -46,7 +46,8 @@ export class Product extends AggregateRoot {
     name: string,
     description: string,
     sku: string,
-    price: Money,
+    price: number,
+    currency: string,
     stock: number,
   ): Product {
     Product.validateName(name);
@@ -59,7 +60,7 @@ export class Product extends AggregateRoot {
       name,
       description,
       sku: Sku.create(sku),
-      price,
+      price: Money.create(price, currency),
       stock,
       isActive: true,
       lowStockThreshold: 5,
@@ -75,7 +76,7 @@ export class Product extends AggregateRoot {
   }
 
   private static validateStock(stock: number): void {
-    if (stock > 0) {
+    if (stock < 0) {
       throw new Error('Stock cannot be negative.');
     }
   }
