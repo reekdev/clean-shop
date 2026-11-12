@@ -1,12 +1,17 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { CommandBus, QueryBus } from '@nestjs/cqrs';
+import { ListProductsQuery } from '../application/queries/list-products.query';
+import { CreateProductCommand } from '../application/use-cases/create-product/create-product.command';
+import { Product } from '../domain/entities/product.entity';
 import { CreateProductDto } from './dto/create-product.dto';
 import { ProductResponseDto } from './dto/product-response.dto';
-import { CommandBus } from '@nestjs/cqrs';
-import { CreateProductCommand } from '../application/use-cases/create-product/create-product.command';
 
 @Controller('products')
 export class ProductController {
-  constructor(private readonly commandBus: CommandBus) {}
+  constructor(
+    private readonly commandBus: CommandBus,
+    private readonly queryBus: QueryBus,
+  ) {}
 
   @Post()
   async create(@Body() dto: CreateProductDto): Promise<void> {
@@ -20,5 +25,21 @@ export class ProductController {
         dto.stock,
       ),
     );
+  }
+
+  @Get()
+  async findAll(
+    @Query('isActive') isActive?: string,
+    @Query('minPrice') minPrice?: string,
+    @Query('maxPrice') maxPrice?: string,
+  ): Promise<ProductResponseDto[]> {
+    const products = await this.queryBus.execute<ListProductsQuery, Product[]>(
+      new ListProductsQuery(
+        isActive !== undefined ? isActive === 'true' : undefined,
+        minPrice !== undefined ? parseFloat(minPrice) : undefined,
+        maxPrice !== undefined ? parseFloat(maxPrice) : undefined,
+      ),
+    );
+    return products.map(ProductResponseDto.fromDomain)
   }
 }
