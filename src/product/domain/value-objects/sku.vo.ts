@@ -1,3 +1,5 @@
+import { DomainException } from "../../../shared/domain/exceptions/domain.exception";
+
 export class Sku {
   private static readonly SKU_PATTERN: RegExp = /^[A-Za-z0-9-]+$/;
   private static readonly MIN_LENGTH = 3;
@@ -16,13 +18,13 @@ export class Sku {
       trimmedValue.length < Sku.MIN_LENGTH ||
       trimmedValue.length > Sku.MAX_LENGTH
     ) {
-      throw new Error(
+      throw new DomainException(
         `SKU must be between ${Sku.MIN_LENGTH} and ${Sku.MAX_LENGTH} characters.`,
       );
     }
 
     if (!Sku.SKU_PATTERN.test(trimmedValue)) {
-      throw new Error(
+      throw new DomainException(
         'SKU must contain only alphanumeric characters and dashes.',
       );
     }

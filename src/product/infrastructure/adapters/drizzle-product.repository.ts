@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { and, eq, gte, lte, SQL } from 'drizzle-orm';
 import { Money } from '../../../shared/domain/value-objects/money.vo';
 import {
   DRIZZLE,
@@ -12,7 +13,6 @@ import {
 import { Product } from '../../domain/entities/product.entity';
 import { ProductId } from '../../domain/value-objects/product-id.vo';
 import { Sku } from '../../domain/value-objects/sku.vo';
-import { and, eq, gte, lte, SQL } from 'drizzle-orm';
 
 @Injectable()
 export class DrizzleProductRepository implements ProductRepository {
@@ -60,6 +60,24 @@ export class DrizzleProductRepository implements ProductRepository {
     return DrizzleProductRepository.toDomain(rows[0]);
   }
 
+  async findBySku(sku: Sku): Promise<Product | null> {
+    const rows = await this.db
+      .select()
+      .from(products)
+      .where(eq(products.sku, sku.getValue()));
+    if (rows.length === 0) return null;
+    return DrizzleProductRepository.toDomain(rows[0]);
+  }
+
+  async findByName(name: string): Promise<Product | null> {
+    const rows = await this.db
+      .select()
+      .from(products)
+      .where(eq(products.name, name));
+    if (rows.length === 0) return null;
+    return DrizzleProductRepository.toDomain(rows[0]);
+  }
+
   async findAll(filters: ProductFilters): Promise<Product[]> {
     const conditions: SQL[] = [];
 
@@ -93,6 +111,10 @@ export class DrizzleProductRepository implements ProductRepository {
     }
 
     return productList;
+  }
+
+  async delete(id: ProductId): Promise<void> {
+    await this.db.delete(products).where(eq(products.id, id.getValue()));
   }
 
   async save(product: Product): Promise<void> {

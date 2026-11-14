@@ -1,0 +1,126 @@
+import { Inject } from '@nestjs/common';
+import { Collection, Db, Filter } from 'mongodb';
+import { Money } from '../../../shared/domain/value-objects/money.vo';
+import { MONGO_DB } from '../../../shared/infrastructure/database/mongodb/mongo.provider';
+import {
+  ProductFilters,
+  ProductRepository,
+} from '../../application/ports/product.repository.port';
+import { Product } from '../../domain/entities/product.entity';
+import { ProductId } from '../../domain/value-objects/product-id.vo';
+import { Sku } from '../../domain/value-objects/sku.vo';
+
+interface ProductDocument {
+  _id: string;
+  name: string;
+  description: string;
+  sku: string;
+  priceAmount: number;
+  priceCurrency: string;
+  stock: number;
+  isActive: boolean;
+  lowStockThreshold: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export class MongoProductRepository implements ProductRepository {
+  private readonly collection: Collection<ProductDocument>;
+
+  constructor(@Inject(MONGO_DB) private readonly db: Db) {
+    this.collection = this.db.collection<ProductDocument>('products');
+  }
+
+  async findById(productId: ProductId): Promise<Product | null> {
+    const doc = await this.collection.findOne({ _id: productId.getValue() });
+    if (!doc) return null;
+    return MongoProductRepository.toDomain(doc);
+  }
+
+  async findBySku(sku: Sku): Promise<Product | null> {
+    const doc = await this.collection.findOne({ sku: sku.getValue() });
+    if (!doc) return null;
+    return MongoProductRepository.toDomain(doc);
+  }
+
+  async findByName(name: string): Promise<Product | null> {
+    const doc = await this.collection.findOne({ name: name });
+    if (!doc) return null;
+    return MongoProductRepository.toDomain(doc);
+  }
+
+  async findAll(filters: ProductFilters): Promise<Product[]> {
+    const query: Filter<ProductDocument> = {};
+
+    if (!filters.isActive) {
+      query.isActive = filters.isActive;
+    }
+
+    if (filters?.minPrice !== undefined || filters?.maxPrice !== undefined) {
+      query.priceAmount = {};
+      if (filters.minPrice !== undefined) {
+        query.priceAmount.$gte = Math.round(filters.minPrice * 100);
+      }
+
+      if (filters.maxPrice !== undefined) {
+        query.priceAmount.$lte = Math.round(filters.maxPrice * 100);
+      }
+    }
+
+    const docs = await this.collection.find(query).toArray();
+
+    return docs.map(MongoProductRepository.toDomain);
+  }
+
+  async delete(id: ProductId): Promise<void> {
+    await this.collection.deleteOne({ _id: id.getValue() });
+  }
+
+  private static toPersistence(product: Product): ProductDocument {
+    const productDocument: ProductDocument = {
+      _id: product.id.getValue(),
+      name: product.name,
+      description: product.description,
+      sku: product.sku.getValue(),
+      priceAmount: product.price.toCents(),
+      priceCurrency: product.price.getCurrency(),
+      stock: product.stock,
+      isActive: product.isActive,
+      lowStockThreshold: product.lowStockThreshold,
+      createdAt: product.createdAt,
+      updatedAt: product.updatedAt,
+    };
+
+    return productDocument;
+  }
+
+  private static toDomain(doc: ProductDocument): Product {
+    return Product.reconstitute({
+      id: new ProductId(doc._id),
+      name: doc.name,
+      description: doc.description,
+      sku: Sku.create(doc.sku),
+      price: Money.create(doc.priceAmount / 100, doc.priceCurrency),
+      stock: doc.stock,
+      isActive: doc.isActive,
+      lowStockThreshold: doc.lowStockThreshold,
+      createdAt: doc.createdAt,
+      updatedAt: doc.updatedAt,
+    });
+  }
+
+  async save(product: Product): Promise<void> {
+    const doc = MongoProductRepository.toPersistence(product);
+    await this.collection.updateOne(
+      {
+        _id: doc._id,
+      },
+      {
+        $set: doc,
+      },
+      {
+        upsert: true,
+      },
+    );
+  }
+}

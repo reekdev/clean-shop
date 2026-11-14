@@ -1,6 +1,11 @@
 import { Inject } from '@nestjs/common';
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
+import {
+  ApplicationException,
+  ApplicationExceptionCode,
+} from '../../../../shared/domain/exceptions/application.exception';
 import { Product } from '../../../domain/entities/product.entity';
+import { Sku } from '../../../domain/value-objects/sku.vo';
 import {
   PRODUCT_REPOSITORY,
   ProductRepository,
@@ -15,6 +20,28 @@ export class CreateProductHandler implements ICommandHandler<CreateProductComman
   ) {}
 
   async execute(command: CreateProductCommand): Promise<void> {
+    const existingBySku = await this.productRepository.findBySku(
+      Sku.create(command.sku),
+    );
+
+    if (existingBySku) {
+      throw new ApplicationException(
+        `Product with SKU ${command.sku} already exists.`,
+        ApplicationExceptionCode.CONFLICT,
+      );
+    }
+
+    const existingByName = await this.productRepository.findByName(
+      command.name,
+    );
+
+    if (existingByName) {
+      throw new ApplicationException(
+        `Product with name ${command.name} already exists.`,
+        ApplicationExceptionCode.CONFLICT,
+      );
+    }
+
     const product: Product = Product.create(
       command.name,
       command.description,
